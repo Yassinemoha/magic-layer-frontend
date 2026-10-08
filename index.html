@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Layer - تقسيم الصور</title>
+    <title>Magic Layer - تقسيم إلى 4 طبقات</title>
     <style>
         body {
             font-family: Tahoma, sans-serif;
@@ -13,7 +13,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
         }
         .card {
             background: white;
@@ -21,10 +21,10 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             text-align: center;
         }
-        h2 { color: #333; margin-bottom: 20px; }
+        h2 { color: #333; margin-bottom: 15px; }
         input[type="file"] {
             display: block;
             margin: 15px auto;
@@ -45,10 +45,33 @@
             margin-top: 10px;
         }
         button:hover { background-color: #0052a3; }
-        #result {
-            margin-top: 20px;
-            font-weight: bold;
-            color: #27ae60;
+        #result { margin-top: 20px; text-align: right; }
+        .layer-box {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .layer-box img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .download-btn {
+            background-color: #27ae60;
+            padding: 6px 12px;
+            font-size: 14px;
+            width: auto;
+            margin: 0;
+            text-decoration: none;
+            color: white;
+            border-radius: 4px;
+            display: inline-block;
         }
     </style>
 </head>
@@ -56,10 +79,10 @@
 
     <div class="card">
         <h2>🎨 Magic Layer</h2>
-        <p>ارفع صورتك لمعالجتها واستخراج أبعادها بـ Pillow</p>
+        <p>ارفع صورتك لتقسيمها إلى 4 طبقات قابلة للتحميل</p>
         
         <input type="file" id="imageInput" accept="image/*">
-        <button onclick="processImage()">إرسال الصورة ومعالجتها</button>
+        <button onclick="processImage()">تقسيم إلى 4 طبقات</button>
         
         <div id="result"></div>
     </div>
@@ -72,14 +95,12 @@
             const resultDiv = document.getElementById('result');
 
             if (fileInput.files.length === 0) {
-                resultDiv.style.color = '#e74c3c';
-                resultDiv.innerText = 'الرجاء اختيار صورة أولاً!';
+                resultDiv.innerHTML = '<p style="color: #e74c3c; text-align: center;">الرجاء اختيار صورة أولاً!</p>';
                 return;
             }
 
             const file = fileInput.files[0];
-            resultDiv.style.color = '#f39c12';
-            resultDiv.innerText = 'جاري رفع المعالجة...';
+            resultDiv.innerHTML = '<p style="color: #f39c12; text-align: center;">جاري معالجة وتقسيم الطبقات...</p>';
 
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -87,23 +108,31 @@
 
                 fetch(BACKEND_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: base64Image })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    resultDiv.style.color = '#27ae60';
-                    if (data.width && data.height) {
-                        resultDiv.innerHTML = `✅ نجاح! الأبعاد الحقيقية: ${data.width} × ${data.height} بكسل<br><small>${data.message}</small>`;
+                    if (data.layers) {
+                        let html = `<p style="color: #27ae60; font-weight: bold; text-align: center;">${data.message}</p>`;
+                        data.layers.forEach((layer, index) => {
+                            html += `
+                                <div class="layer-box">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <img src="${layer.data}" alt="Layer">
+                                        <span>${layer.name}</span>
+                                    </div>
+                                    <a href="${layer.data}" download="layer_${index + 1}.png" class="download-btn">تحميل</a>
+                                </div>
+                            `;
+                        });
+                        resultDiv.innerHTML = html;
                     } else {
-                        resultDiv.innerText = '⚠️ استابعت الاستجابة ولكن بدون أبعاد واضحة.';
+                        resultDiv.innerHTML = '<p style="color: #e74c3c; text-align: center;">حدث خطأ في استجابة الخادم.</p>';
                     }
                 })
                 .catch(error => {
-                    resultDiv.style.color = '#e74c3c';
-                    resultDiv.innerText = '❌ حدث خطأ أثناء الاتصال بالخادم.';
+                    resultDiv.innerHTML = '<p style="color: #e74c3c; text-align: center;">خطأ في الاتصال بالخادم.</p>';
                     console.error('Error:', error);
                 });
             };
